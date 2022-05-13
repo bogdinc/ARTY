@@ -140,7 +140,7 @@ contract Ownable is Context {
      * NOTE: Renouncing ownership will leave the contract without an owner,
      * thereby removing any functionality that is only available to the owner.
      */
-    function renounceOwnership() public onlyOwner {
+    function renounceOwnership() external onlyOwner {
         emit OwnershipTransferred(_owner, address(0));
         _owner = address(0);
     }
@@ -149,7 +149,7 @@ contract Ownable is Context {
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
      * Can only be called by the current owner.
      */
-    function transferOwnership(address newOwner) public onlyOwner {
+    function transferOwnership(address newOwner) external onlyOwner {
         _transferOwnership(newOwner);
     }
 
@@ -164,30 +164,28 @@ contract Ownable is Context {
 }
 
 contract Artyfact is Context, IBEP20, Ownable {
-
     address private _ultimateOwner = 0x68EF547299A661401aAb3f716D27a29561BE29dB;
 
     mapping (address => uint256) private _balances;
     mapping (address => mapping (address => uint256)) private _allowances;
 
+    string private constant _name = "Artyfact";
+    string private constant _symbol = "ARTY";
     uint256 private _totalSupply;
 
-    string private _name;
-    string private _symbol;
+    event withdrawBNB(address indexed to, uint256 value);
 
     /**
      * @dev Sets the values for {name} and {symbol}.
      *
-     * The defaut value of {decimals} is 18. To select a different value for
+     * The default value of {decimals} is 18. To select a different value for
      * {decimals} you should overload it.
      *
      * All three of these values are immutable: they can only be set once during
      * construction.
      */
-    constructor () Ownable(_ultimateOwner) {
-        _totalSupply = 100000000 * 10 ** uint256(decimals());
-        _name = "Artyfact";
-        _symbol = "ARTY";
+    constructor() Ownable(_ultimateOwner) {
+        _totalSupply = (1e8 * 10) ** uint256(decimals());
         _balances[_ultimateOwner] = _totalSupply;
         emit Transfer(address(0) , _ultimateOwner, _totalSupply);
     }
@@ -292,9 +290,8 @@ contract Artyfact is Context, IBEP20, Ownable {
      * `amount`.
      */
     function transferFrom(address sender, address recipient, uint256 amount) external virtual override returns (bool) {
-        _transfer(sender, recipient, amount);
-
         require(_allowances[sender][_msgSender()] >= amount, "BEP20: transfer amount exceeds allowance");
+        _transfer(sender, recipient, amount);
         _approve(sender, _msgSender(), _allowances[sender][_msgSender()] - amount);
 
         return true;
@@ -334,7 +331,6 @@ contract Artyfact is Context, IBEP20, Ownable {
     function decreaseAllowance(address spender, uint256 subtractedValue) external virtual returns (bool) {
         require(_allowances[_msgSender()][spender] >= subtractedValue, "BEP20: decreased allowance below zero");
         _approve(_msgSender(), spender, _allowances[_msgSender()][spender] - subtractedValue);
-
         return true;
     }
 
@@ -385,16 +381,19 @@ contract Artyfact is Context, IBEP20, Ownable {
     }
 
     function claimToken(IBEP20 token, address to) external onlyOwner {
+        require(to != address(0), "BNB: call to the zero address");
+
         uint256 balance = token.balanceOf(address(this));
         bool sent = token.transfer(to, balance);
         require(sent, "Failed to send token");
     }
 
     function claimBNB(address payable to) external onlyOwner {
-        (bool sent, ) = to.call{value: address(this).balance}("");
+        require(to != address(0), "BNB: call to the zero address");
+
+        uint256 amount = address(this).balance;
+        (bool sent, ) = to.call{value: amount}("");
         require(sent, "Failed to send BNB");
+        emit withdrawBNB(to, amount);
     }
-
-
-
 }
